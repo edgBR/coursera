@@ -1,0 +1,121 @@
+---
+title: 'Statistical Inference Course Project Part 2: Guinea pig ToothGrowth EDA'
+author: "Edgar Bahilo Rodríguez"
+date: "December 12 of 2018"
+output:
+  pdf_document: 
+    number_sections: yes
+    toc: yes
+  html_document: default
+---
+#Introduction
+
+This [R Markdown](http://rmarkdown.rstudio.com) notebook develops part 2 of the statistical inference project for the Statistical Inferece part of the Data Science Specialization by [Coursera](https://www.coursera.org) and [John Hopkins University](https://www.jhu.edu/). As it is described in the instructions of the assignment the purpose of this document is:
+
+1. Perform some basic statistics for the ToothGrowth dataset.
+2. Illustrate via exploratory data analysis the difference between the variables of the dataset.
+3. Use confidence intervals and/or hypothesis tests to compare tooth growth by supp and dose. (Only use the techniques from class, even if there's other approaches worth considering).
+4. Stating the conclussions of the assignment and the assumptions that you have made.
+
+#Data loading and summary statistics
+
+```{r include=FALSE}
+library(ggplot2)
+library(grid)
+library(gridExtra)
+library(dplyr)
+
+```
+
+The code below displays the basic information and summary statistics for the ToothGrowth dataset.
+
+```{r}
+data(ToothGrowth)
+str(ToothGrowth)
+summary(ToothGrowth)
+```
+
+We can look into specif statistics using by function or dplyr syntax:
+
+```{r}
+ToothGrowth %>% filter(supp=="VC" & dose==0.5) %>% summary()
+ToothGrowth %>% filter(supp=="OJ" & dose==0.5) %>% summary()
+ToothGrowth %>% filter(supp=="VC" & dose==1) %>% summary()
+ToothGrowth %>% filter(supp=="OJ" & dose==1) %>% summary()
+ToothGrowth %>% filter(supp=="VC" & dose==2) %>% summary()
+ToothGrowth %>% filter(supp=="OJ" & dose==2) %>% summary()
+```
+
+#Data Visualization
+
+We can use ggplot to visualise boxplots for the different suplements type (VC and OJ) and for the different doses.
+
+```{r}
+ggplot(aes(x=as.factor(dose), y=len), data=ToothGrowth) + geom_boxplot(aes(fill=dose))+ 
+xlab("Dose quantity") + ylab("Tooth Length") + facet_grid(~ supp) + 
+ggtitle("Tooth Length vs. Dose Amount by delivery method") + 
+theme(plot.title = element_text(lineheight=.8, face="bold"))
+```
+Now we compare separating the dose:
+
+```{r}
+ggplot(aes(x=supp, y=len), data=ToothGrowth) + geom_boxplot(aes(fill=supp)) + 
+xlab("Supplement Delivery") + ylab("Tooth Length") + facet_grid(~ dose) + 
+ggtitle("Tooth Length vs. Delivery Method by Dose Amount") + 
+theme(plot.title = element_text(lineheight=.8, face="bold"))
+```
+
+#Statistical tests
+
+We check now  the variances of the 2 suplement groups before performing any statistical test.
+
+```{r}
+meansupp = split(ToothGrowth$len, ToothGrowth$supp)
+sapply(meansupp, var)
+```
+
+The difference seems considerable therefore we will assume unequal variance between the two groups. Now we try to find if the tooth length is afected by the supplement type:
+
+```{r}
+t.test(len ~ supp, paired = F, var.equal = F, data = ToothGrowth)
+```
+
+P-value is greater than 0.05 and the confidence interval contains zero. This indicates that we can not reject the null hypothesis that the different supplement types have no effect on tooth length. Now we try to find if the dose is the significant parameter that drives the tooth lenght, we create three different subsets with difference doses and we run the t-student test for all of the subsets.
+
+```{r}
+dose1 <- subset(ToothGrowth, dose %in% c(0.5, 1.0))
+dose2 <- subset(ToothGrowth, dose %in% c(0.5, 2.0))
+dose3 <- subset(ToothGrowth, dose %in% c(1.0, 2.0))
+all_1<-list(dose1, dose2, dose3)
+for (i in 1:length(all_1)){
+  print(t.test(len ~ dose, paired = F, var.equal = F, data = all_1[[i]]))
+}
+```
+
+And now we do the same but analyzing the data for dose level and change in tooth growth within for each specific dose level:
+
+```{r}
+dose4 <- subset(ToothGrowth, dose==0.5)
+dose5 <- subset(ToothGrowth, dose==1.0)
+dose6 <- subset(ToothGrowth, dose==2.0)
+all_2<-list(dose4, dose5, dose6)
+for (i in 1:length(all_2)){
+  print(t.test(len ~ supp, paired = F, var.equal = TRUE, data = all_2[[i]]))
+}
+```
+
+For dose levels $0.5mg$ and $1.0mg$ the confidence intervals are as follows: $[1.72, 8,78]_{0.5mg}$ and $[2.80, 9.06]_{1.0mg}$. Looking at the p-values of each test ($p-value_{0.5mg}=0.006$ and $p-value_{1.0mg}=0.001$) we can reject the null hypothesis and state the significant correlation between tooth length and dose levels. On the other hand, the confidence interval for dose level $2.0$ is $[-3.80, 3.64]_{2.0mg}$ and$p-value_{2.0mg}=0.9639$ so it is most likely that for this dose level the lenght is not correlated with the dose.
+
+#Conclusions
+
+1. Supplement type has no effect on tooth growth.
+2. Increasing the dose level leads to increased tooth growth.
+3. It seems that orange juice is better than pure vitamin C with larger impact in tooth lenght. However as it was stated above, at higher doses the suplement type seems irrelevant ($\mu_{OJ-2.0MG}=26.06$ and $\mu_{VC-2.0MG}=26.14$)
+
+\pagebreak
+
+#Assumptions
+
+1. The experiment is assuming that each guinea pig was randomly assigned to a combination of dosage and supplement type, therefore each sample was independent of each other.
+2. The sample of 60 Guinea pigs is assumed to be representative of all Guinea pigs, therefore it is assumed that we can extrapolate these results to the whole population.
+3. For t-test regarding tooth length per supplement type, the variances are assumed to be different for the two groups being compared. For t-tests regarding tooth length per dosage level, the variances are assumed to be equal for the three combinations of the two groups being compared.
