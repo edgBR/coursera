@@ -1,0 +1,96 @@
+---
+title: "01-EDA-Plots"
+author: "Edgar Bahilo"
+date: "1/10/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Loading and Filtering Data
+
+
+```{r}
+library(ggplot2)
+library(tidyr)
+source("../code/getData.R")
+el_data <- read_data("../data/household_power_consumption.txt")
+el_data <- el_data %>%
+  mutate(snsr_ts = paste(date, time, sep = " ")) %>%
+  mutate(snsr_ts = as.POSIXct(snsr_ts, tz = "UTC"))
+
+el_data_subset <- el_data %>%
+  filter(date >= '2007-02-01', date <= '2007-02-02')
+```
+# Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+p1 <- ggplot(el_data_subset, aes(x = global_active_power)) +
+  geom_histogram(fill = "#F8766D") +
+  labs(x = "Global Active Power (kilowatts)", title = "Global Active Power")
+p1
+```
+```{r}
+p2 <-
+  ggplot(el_data_subset, aes(x = snsr_ts, y = global_active_power)) +
+  geom_line() +
+  xlab("") +
+  ylab("Global Active Power (kilowatts)") +
+  theme(axis.title.y = element_text(size = 10)) +
+  theme(axis.text.x = element_text(size = 6),
+        axis.text.y = element_text(size = 6))
+p2
+```
+```{r}
+pivoted_subset <- el_data_subset %>%
+  mutate_if(is.character, as.numeric) %>%
+  pivot_longer(
+    .,
+    cols = -c(date, time, snsr_ts),
+    names_to = "feature_name",
+    values_to = "feature_value"
+  )
+p3 <- ggplot(pivoted_subset %>%
+               filter(
+                 feature_name %in% c("sub_metering_1", "sub_metering_2", "sub_metering_3")
+               ),
+             aes(snsr_ts, feature_value)) +
+  geom_line(aes(colour = feature_name)) +
+  labs(y = "Global Active Power (kilowatts)") +
+  theme(legend.justification = c(1, 1),
+        legend.position = c(1, 1)) +
+  theme(axis.title.y = element_text(size = 10)) +
+  theme(axis.text.x = element_text(size = 6),
+        axis.text.y = element_text(size = 6)) +
+  theme(legend.title = element_blank(),
+        legend.margin = unit(-12, "pt"))
+
+p3
+```
+```{r}
+library(gridExtra)
+
+p4 <-
+  ggplot(el_data_subset, aes(x = snsr_ts, y = global_reactive_power)) +
+  geom_line() +
+  xlab("") +
+  ylab("Global Reactive Power (kVAR)") +
+  theme(axis.title.y = element_text(size = 10)) +
+  theme(axis.text.x = element_text(size = 6),
+        axis.text.y = element_text(size = 6))
+p5 <- ggplot(el_data_subset, aes(x = snsr_ts, y = voltage)) +
+  geom_line() +
+  xlab("") +
+  ylab("Voltage (V)") +
+  theme(axis.title.y = element_text(size = 10)) +
+  theme(axis.text.x = element_text(size = 6),
+        axis.text.y = element_text(size = 6))
+
+grid.arrange(p2, p5, p3, p4, ncol = 2, nrow = 2)
+```
+
+
